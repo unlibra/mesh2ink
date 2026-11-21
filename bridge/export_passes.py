@@ -311,7 +311,7 @@ def main(config_path, out_dir):
         "depth_far": float(f"{far:.6g}"),
         "parts": [{"id": i, "color": part_color(i), "material": m.name} for m, i in part_ids.items()],
     }
-    (out_dir / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    (out_dir / "meta.json").write_text(json.dumps(meta, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
 def entry():

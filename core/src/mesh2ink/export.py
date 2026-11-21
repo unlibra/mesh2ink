@@ -14,21 +14,6 @@ ICON_SCALE = 2.9  # アイコンの正方形の辺を、顔の暗い描き込み
 SHEET_GRAY = 235
 
 
-def composite(layers: list[Layer]) -> np.ndarray:
-    """レイヤーを下から順に通常の合成で重ねる。背景は透明。"""
-    height, width = layers[0].rgba.shape[:2]
-    color = np.zeros((height, width, 3), np.float64)  # アルファを掛けた色
-    alpha = np.zeros((height, width, 1), np.float64)
-    for layer in layers:
-        a = layer.rgba[..., 3:].astype(np.float64) / 255
-        color = layer.rgba[..., :3].astype(np.float64) / 255 * a + color * (1 - a)
-        alpha = a + alpha * (1 - a)
-    out = np.zeros((height, width, 4), np.float64)
-    np.divide(color, alpha, out=out[..., :3], where=alpha > 0)
-    out[..., 3:] = alpha
-    return np.round(out * 255).astype(np.uint8)
-
-
 def write_psd(path: Path, layers: list[Layer]) -> None:
     height, width = layers[0].rgba.shape[:2]
     psd = PSDImage.new("RGBA", (width, height))
@@ -36,6 +21,14 @@ def write_psd(path: Path, layers: list[Layer]) -> None:
         psd.append(psd.create_pixel_layer(Image.fromarray(layer.rgba, "RGBA"), name=layer.name, top=0, left=0))
     with path.open("wb") as f:
         psd.save(f)
+
+
+def read_psd_composite(path: Path) -> np.ndarray:
+    """PSDを読み戻し、レイヤーを通常の合成で重ねた絵を返す。背景は透明で、透明な画素の色は0にそろえる。"""
+    with path.open("rb") as f:
+        rgba = np.array(PSDImage.open(f).composite(force=True).convert("RGBA"))
+    rgba[rgba[..., 3] == 0] = 0
+    return rgba
 
 
 def icon_square(foreground: np.ndarray, dark: np.ndarray) -> tuple[int, int, int]:
@@ -78,7 +71,8 @@ def write_outputs(folder: Path, layers: list[Layer], foreground: np.ndarray, dar
         names.append(f"{order:02d}_{layer.name}.png")
         write_png(folder / "layers" / names[-1], layer.rgba)
     write_psd(folder / "illustration.psd", layers)
-    final = composite(layers)
+    # 合成した絵は、書いたPSDを読み戻して作る。PSDを開いた時の見え方と、final.png が食い違わない
+    final = read_psd_composite(folder / "illustration.psd")
     write_png(folder / "final.png", final)
     write_png(folder / "icon_sheet.png", icon_sheet(final, icon_square(foreground, dark)))
     return names

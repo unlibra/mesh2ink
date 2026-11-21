@@ -1,7 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """テスト用のシーンを作って .blend に保存する。形もテクスチャもこのスクリプトが作る。
 
-使い方：blender --background --factory-startup --python make_test_scene.py -- <出力.blend>
+使い方：blender --background --factory-startup --python make_test_scene.py -- <出力.blend> [<種類>]
+
+種類を付けると、条件に合わないシーンを作る。止まり方のテストに使う。
+no_camera（カメラが無い）、no_mesh（メッシュが無い）、no_material（材質の無い面がある）、
+too_many_parts（材質が65個ある）、away（カメラが物の無い方を向いている）、plain（単色の球だけで、顔が無い）
 
 入るもの：顔の描き込み（まつ毛、眉、口、頬の赤み）をテクスチャに持つ頭、
 瞳のテクスチャを持つ目、単色の髪、材質が2つの体、カメラ。
@@ -102,9 +106,39 @@ def project_front_uv(bm, radius_x, radius_z):
             loop[uv].uv = (co.x / radius_x * 0.5 + 0.5, co.z / radius_z * 0.5 + 0.5)
 
 
-def main(out_path):
+def add_camera(scene, location=(0.3, -1.6, 1.5), target=(0, 0, 1.43)):
+    cam_data = bpy.data.cameras.new("camera")
+    cam_data.lens = 120
+    cam = bpy.data.objects.new("camera", cam_data)
+    cam.location = location
+    cam.rotation_euler = (Vector(target) - cam.location).to_track_quat("-Z", "Y").to_euler()
+    scene.collection.objects.link(cam)
+    scene.camera = cam
+    scene.render.resolution_x = scene.render.resolution_y = 1024
+
+
+def add_ball(name, materials, location=(0, 0, HEAD_Z)):
+    bm = bmesh.new()
+    bmesh.ops.create_uvsphere(bm, u_segments=16, v_segments=8, radius=HEAD_R)
+    return add_object(name, bm, materials, location)
+
+
+def main(out_path, variant):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
+    if variant is not None:
+        if variant != "no_camera":
+            add_camera(scene, target=(0, -3, 1.5) if variant == "away" else (0, 0, 1.43))
+        if variant == "no_material":
+            add_ball("bare", [])
+        elif variant == "too_many_parts":
+            ball = add_ball("many", [material(f"m{i:02d}", color=(0.5, 0.5, 0.5)) for i in range(65)])
+            for i, polygon in enumerate(ball.data.polygons):
+                polygon.material_index = i % 65
+        elif variant != "no_mesh":
+            add_ball("ball", [material("plain", color=(0.8, 0.6, 0.4))])
+        bpy.ops.wm.save_as_mainfile(filepath=out_path)
+        return
 
     bm = bmesh.new()
     bmesh.ops.create_uvsphere(bm, u_segments=48, v_segments=24, radius=HEAD_R)
@@ -136,17 +170,9 @@ def main(out_path):
     # 2つ目の材質は、英数字でない名前の扱いを試すために日本語の名前にしている
     add_object("body", bm, [material("body", color=(1.0, 0.87, 0.80)), material("服", color=(0.30, 0.45, 0.75))], (0, 0, 1.28))
 
-    cam_data = bpy.data.cameras.new("camera")
-    cam_data.lens = 120
-    cam = bpy.data.objects.new("camera", cam_data)
-    cam.location = (0.3, -1.6, 1.5)
-    target = Vector((0, 0, 1.43))
-    cam.rotation_euler = (target - cam.location).to_track_quat("-Z", "Y").to_euler()
-    scene.collection.objects.link(cam)
-    scene.camera = cam
-    scene.render.resolution_x = scene.render.resolution_y = 1024
-
+    add_camera(scene)
     bpy.ops.wm.save_as_mainfile(filepath=out_path)
 
 
-main(sys.argv[sys.argv.index("--") + 1])
+_args = sys.argv[sys.argv.index("--") + 1 :]
+main(_args[0], _args[1] if len(_args) > 1 else None)

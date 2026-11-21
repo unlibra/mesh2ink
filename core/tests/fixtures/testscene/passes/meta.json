@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "width": 512,
+  "height": 512,
+  "projection": "PERSP",
+  "pixel_size": 0.000958494,
+  "depth_near": 1.47551,
+  "depth_far": 1.79615,
+  "parts": [
+    {
+      "id": 1,
+      "color": [
+        64,
+        0,
+        0
+      ],
+      "material": "body"
+    },
+    {
+      "id": 2,
+      "color": [
+        128,
+        0,
+        0
+      ],
+      "material": "eye"
+    },
+    {
+      "id": 3,
+      "color": [
+        191,
+        0,
+        0
+      ],
+      "material": "face"
+    },
+    {
+      "id": 4,
+      "color": [
+        255,
+        0,
+        0
+      ],
+      "material": "hair"
+    },
+    {
+      "id": 5,
+      "color": [
+        0,
+        64,
+        0
+      ],
+      "material": "服"
+    }
+  ]
+}

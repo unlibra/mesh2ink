@@ -33,7 +33,7 @@ def check_out_dir(out: Path) -> None:
 
 
 def write_json(path: Path, data: dict[str, Any]) -> None:
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
 def process_passes(work: Path, preset: Preset) -> dict[str, Any]:

@@ -1,0 +1,8 @@
+core/tests/fixtures/testscene/expected_final.png
+core/tests/fixtures/testscene/passes/color.png
+core/tests/fixtures/testscene/passes/depth.png
+core/tests/fixtures/testscene/passes/light.png
+core/tests/fixtures/testscene/passes/line_contour.png
+core/tests/fixtures/testscene/passes/line_material.png
+core/tests/fixtures/testscene/passes/normal.png
+core/tests/fixtures/testscene/passes/parts.png
