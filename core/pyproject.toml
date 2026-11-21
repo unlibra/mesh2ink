@@ -1,0 +1,37 @@
+[project]
+name = "mesh2ink"
+version = "0.1.0"
+description = "Blenderのシーンから、レイヤーつきの2Dイラストを作る"
+license = "AGPL-3.0-or-later"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=2.0",
+    "opencv-contrib-python-headless>=4.10",
+    "pillow>=11.0",
+    "psd-tools==1.27.0",
+]
+
+[project.scripts]
+mesh2ink = "mesh2ink.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8.0", "ruff>=0.8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mesh2ink"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m 'not blender'"
+markers = ["blender: Blenderを起動するテスト。手元で -m blender を付けて回す"]
+
+[tool.ruff]
+line-length = 140
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
