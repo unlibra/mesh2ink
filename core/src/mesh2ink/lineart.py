@@ -22,7 +22,7 @@ THIN_AREA = (40, 6000)  # 細い描き込みとみなす面積の下限と上限
 class LineArt:
     alpha: np.ndarray  # 線の濃さ。0〜1
     drawn: np.ndarray  # 顔の部位の中で、線にした描き込みの画素。下塗りで地の色に埋める
-    dark: np.ndarray  # 顔と瞳の中の暗い描き込み。アイコンの切り出しの基準にも使う
+    dark: np.ndarray  # 顔の中の暗い描き込み。アイコンの切り出しの基準にも使う
 
 
 def build_lineart(passes: Passes, roles: Roles) -> LineArt:
@@ -39,8 +39,8 @@ def build_lineart(passes: Passes, roles: Roles) -> LineArt:
     base_color = np.median(rgb[face], 0)
     diff = np.linalg.norm(rgb - base_color, axis=2)
 
-    # 暗い部分（まつ毛、目の縁、瞳孔）はそのまま塗りつぶす
-    dark = (face | eye) & (value < base_value * DARK_RATIO)
+    # 顔の暗い部分（まつ毛、目の縁）はそのまま塗りつぶす。瞳の中は塗りつぶさず、下塗りにテクスチャの色を残す
+    dark = face & (value < base_value * DARK_RATIO)
     # 地の色と違う細い部分（眉、口）。幅の広い部分（頬の赤み、瞳）は、明るさによらず入れない
     mid = (face & ~dark & (diff > COLOR_DIFF)).astype(np.uint8)
     mid = cv2.morphologyEx(mid, cv2.MORPH_OPEN, ellipse(px(passes, 1)))
