@@ -14,6 +14,7 @@ from .roles import DARK_RATIO, Roles, ellipse, px
 
 COLOR_DIFF = 0.12  # 顔の地の色からこれ以上離れた所を、描き込みの候補にする
 THIN_WIDTH = 14  # これより幅の狭い所を、細い描き込みとみなす（1600px基準の画素）
+FRINGE_TOUCH = 0.3  # 幅の広い部分に、画素のこの割合以上が接していれば、その縁の切れ端とみなす
 THIN_AREA = (40, 6000)  # 細い描き込みとみなす面積の下限と上限（1600px基準）
 
 
@@ -46,7 +47,13 @@ def build_lineart(passes: Passes, roles: Roles) -> LineArt:
     narrow = mid & ~cv2.morphologyEx(mid, cv2.MORPH_OPEN, ellipse(px(passes, THIN_WIDTH / 2)))
     count, components, stats, _ = cv2.connectedComponentsWithStats(narrow, connectivity=8)
     low, high = (a * passes.scale**2 for a in THIN_AREA)
-    thin_ids = [i for i in range(1, count) if low <= stats[i, cv2.CC_STAT_AREA] <= high]
+    # 幅の広い部分の縁に付いた切れ端（頬の赤みのふちなど）は入れない
+    beside_wide = cv2.dilate(mid & ~narrow, ellipse(px(passes, 2))) > 0
+    thin_ids = [
+        i
+        for i in range(1, count)
+        if low <= stats[i, cv2.CC_STAT_AREA] <= high and beside_wide[components == i].mean() < FRINGE_TOUCH
+    ]
     thin_blobs = np.isin(components, thin_ids)
     # 眉や口は、塗りつぶさず芯の線にする。モデルでは薄い色の細い形で、塗ると太く見えすぎる
     thin = cv2.dilate(cv2.ximgproc.thinning(thin_blobs.astype(np.uint8) * 255), ellipse(px(passes, 1))) > 0

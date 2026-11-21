@@ -10,7 +10,9 @@ from .passes import Passes
 
 DARK_RATIO = 0.66  # 部位の地の明るさに対して、これより暗い所を描き込みとみなす
 EYE_MAX_AREA = 0.05  # 瞳の部位は、写っている物の面積のこの割合より小さい
-EYE_ENCLOSED = 0.8  # 瞳の部位は、まわりのこの割合以上を1つの部位に囲まれている
+EYE_ENCLOSED = 0.5  # 瞳の部位は、まわりのこの割合以上を1つの部位（顔）に囲まれている。残りは前髪などが重なる
+EYE_OPEN = 0.1  # 瞳の部位のまわりで、背景に接してよい割合の上限
+PAIR_RATIO = 0.2  # 瞳の2つのかたまりとみなす、大きいほうに対する面積の割合の下限
 FACE_MIN_BASE = 0.5  # 顔の部位の地の明るさの下限。暗い地に明るい模様のある部位を、顔に選ばないため
 FACE_MIN_DARK = 0.0002  # 顔の部位は、画像の画素の数のこの割合以上の暗い描き込みを持つ
 FACE_MARGIN = 2.0  # 顔の部位は、次点のこの倍以上の暗い描き込みを持つ
@@ -44,7 +46,7 @@ def dark_pixels(passes: Passes, part_id: int) -> int:
 
 
 def enclosing_part(passes: Passes, part_id: int) -> int | None:
-    """部位が小さく、まわりを1つの部位に囲まれていれば、囲んでいる部位の番号を返す。"""
+    """部位が小さく、背景にほぼ接さず、まわりの半分以上が1つの部位なら、その部位の番号を返す。"""
     mask = passes.labels == part_id
     foreground = int((passes.labels > 0).sum())
     if mask.sum() > foreground * EYE_MAX_AREA:
@@ -53,7 +55,15 @@ def enclosing_part(passes: Passes, part_id: int) -> int | None:
     around = np.bincount(passes.labels[ring], minlength=256)
     around[part_id] = 0
     best = int(around[1:].argmax()) + 1
-    return best if around[best] >= ring.sum() * EYE_ENCLOSED else None
+    total = int(ring.sum())
+    return best if around[best] >= total * EYE_ENCLOSED and around[0] <= total * EYE_OPEN else None
+
+
+def is_pair(passes: Passes, part_id: int) -> bool:
+    """部位が、同じくらいの大きさの2つのかたまり（左右の瞳）でできているか。"""
+    count, _, stats, _ = cv2.connectedComponentsWithStats((passes.labels == part_id).astype(np.uint8), connectivity=8)
+    areas = sorted((int(stats[i, cv2.CC_STAT_AREA]) for i in range(1, count)), reverse=True)
+    return len([a for a in areas if a >= areas[0] * PAIR_RATIO]) == 2
 
 
 def _lookup(passes: Passes, material: str, key: str) -> int:
@@ -77,6 +87,9 @@ def resolve_roles(passes: Passes, face: str, eye: str) -> Roles:
     if eye == "auto":
         enclosed = {p.id: enclosing_part(passes, p.id) for p in passes.parts}
         candidates = [i for i, outer in enclosed.items() if outer is not None and face_id in (None, outer) and i != face_id]
+        if len(candidates) > 1:
+            # 首や飾りのような、ほかの小さい部位と区別する
+            candidates = [i for i in candidates if is_pair(passes, i)] or candidates
         if len(candidates) > 1:
             found = "、".join(p.material for p in passes.parts if p.id in candidates)
             raise Mesh2inkError(
