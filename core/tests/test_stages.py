@@ -183,3 +183,36 @@ def test_face_fill_keeps_skin_and_blush_but_not_the_inked_drawing(tmp_path):
     assert np.abs(face_fill[262, 200, :3].astype(int) - SKIN).max() <= 12  # 口の下も肌の色
     assert tuple(face_fill[240, 140, :3]) == tuple(rgb[240, 140])  # 頬の赤みはそのまま
     assert face_fill[240, 140, 1] < SKIN[1] - 10
+
+
+def test_a_soft_edged_change_of_color_inside_a_part_is_not_split(tmp_path):
+    labels, rgb, materials = face_scene()
+    glow = np.zeros(labels.shape, np.float32)
+    cv2.circle(glow, (200, 90), 25, 1.0, -1)
+    glow = cv2.GaussianBlur(glow, (0, 0), 14)[..., None]  # ぼけたハイライト。中心は地の色から大きく離れる
+    hair = (labels == 3)[..., None]
+    rgb = np.where(hair, rgb * (1 - glow) + np.array([250, 215, 190]) * glow, rgb).astype(np.uint8)
+    assert np.abs(rgb[90, 200].astype(int) - (120, 70, 50)).max() > 80
+    _, _, _, fills = stages(write_passes(tmp_path / "passes", labels, rgb, materials))
+    assert len(np.unique(fills[2].rgba[labels == 3][:, :3], axis=0)) == 1
+
+
+def test_neighbouring_parts_of_nearly_the_same_color_get_one_color(tmp_path):
+    labels, rgb, materials = face_scene()
+    back = labels == 3
+    front = back & (np.arange(400)[None, :] < 200)  # 髪を、色の近い2つの材質に分ける
+    labels[front] = 4
+    labels[300:, :] = np.where(labels[300:, :] == 4, 0, labels[300:, :])
+    rgb[front] = (135, 80, 58)
+    materials = {1: "face", 2: "eye", 3: "hair_back", 4: "hair_front"}
+    _, _, _, fills = stages(write_passes(tmp_path / "passes", labels, rgb, materials))
+    assert [f.name for f in fills] == ["fill_01_face", "fill_02_eye", "fill_03_hair_back", "fill_04_hair_front"]
+    assert fills[2].rgba[70, 230, 3] == 255 and fills[3].rgba[70, 170, 3] == 255
+    assert tuple(fills[2].rgba[70, 230, :3]) == tuple(fills[3].rgba[70, 170, :3])
+    assert fills[3].rgba[70, 230, 3] == 0  # レイヤーは材質ごとのまま
+
+
+def test_neighbouring_parts_of_different_colors_keep_their_own_colors(face_passes):
+    _, _, _, fills = stages(face_passes)
+    assert tuple(fills[2].rgba[60, 200, :3]) == (120, 70, 50)  # 髪
+    assert tuple(fills[3].rgba[350, 120, :3]) == (70, 110, 190)  # 服

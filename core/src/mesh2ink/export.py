@@ -10,7 +10,7 @@ from psd_tools import PSDImage
 from .fills import Layer
 from .imageio import write_png
 
-ICON_SCALE = 2.9  # アイコンの正方形の辺を、顔の暗い描き込み（目のまわり）の広がりの何倍にするか
+ICON_SCALE = 2.2  # アイコンの正方形の辺を、顔の暗い描き込み（目のまわり）の広がりの何倍にするか
 SHEET_GRAY = 235
 
 
